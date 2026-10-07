@@ -27,9 +27,26 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           printf '{"version": "%s" }' "$version" > public/version.json
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:coverage
+
+      - name: Update coverage
+        run: |
+          coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+          # awk instead of bc: bc is not installed on the ubuntu-24.04 runner
+          color=$(awk -v c="$coverage" 'BEGIN{print (c < 80) ? "red" : "green"}')
+          echo "coverage=$coverage color=$color"
+          # -f makes a rejected request fail the step instead of passing silently
+          curl -sf -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzacoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
+
       - name: Build
         run: |
-          npm ci && npm run build
+          npm run build
           cp dist/index.html dist/404.html
 
       - name: Update pages artifact
