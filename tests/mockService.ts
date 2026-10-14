@@ -12,7 +12,7 @@ export const menu = [
 ];
 
 export const franchises = [
-  { id: 2, name: 'LotaPizza', admins: [{ id: '4', name: 'Frank Chise', email: 'f@jwt.com' }], stores: [{ id: 4, name: 'Lehi', totalRevenue: 0.05 }, { id: 5, name: 'Springville', totalRevenue: 0.02 }] },
+  { id: 2, name: 'LotaPizza', admins: [{ id: '4', name: 'Franny Adams', email: 'fa@jwt.com' }], stores: [{ id: 4, name: 'Lehi', totalRevenue: 0.05 }, { id: 5, name: 'Springville', totalRevenue: 0.02 }] },
   { id: 3, name: 'PizzaCorp', admins: [], stores: [{ id: 7, name: 'Spanish Fork', totalRevenue: 0 }] },
 ];
 
@@ -23,6 +23,11 @@ export const franchises = [
  */
 export async function mockService(page: Page, users: User[] = [diner]) {
   let loggedInUser: User | undefined;
+  let userList: User[] = [
+    { id: '3', name: 'Kai Chen', email: 'd@jwt.com', roles: [{ role: Role.Diner }] },
+    { id: '4', name: 'Frank Chise', email: 'f@jwt.com', roles: [{ role: Role.Franchisee }] },
+    { id: '1', name: 'Anna Min', email: 'a@jwt.com', roles: [{ role: Role.Admin }] },
+  ];
   const validUsers: Record<string, User> = {};
   users.forEach((u) => (validUsers[u.email as string] = u));
 
@@ -55,6 +60,28 @@ export async function mockService(page: Page, users: User[] = [diner]) {
 
   await page.route('*/**/api/user/me', async (route) => {
     await route.fulfill({ json: loggedInUser });
+  });
+
+  // admin user list, with name filtering and pagination
+  await page.route(/\/api\/user(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const name = (url.searchParams.get('name') || '*').replace(/\*/g, '');
+    const limit = Number(url.searchParams.get('limit') || 10);
+    const matched = userList.filter((u) => (u.name || '').includes(name));
+    await route.fulfill({ json: { users: matched.slice(0, limit), more: matched.length > limit } });
+  });
+
+  // update a user (PUT) or delete one (DELETE)
+  await page.route(/\/api\/user\/\d+$/, async (route) => {
+    if (route.request().method() === 'DELETE') {
+      const id = route.request().url().split('/').pop();
+      userList = userList.filter((u) => u.id !== id);
+      await route.fulfill({ json: { message: 'user deleted' } });
+      return;
+    }
+    const updated = route.request().postDataJSON();
+    loggedInUser = { ...loggedInUser, ...updated };
+    await route.fulfill({ json: { user: loggedInUser, token: 'abcdef' } });
   });
 
   await page.route('*/**/api/order/menu', async (route) => {

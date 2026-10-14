@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import NotFound from './notFound';
 import Button from '../components/button';
 import { pizzaService } from '../service/service';
-import { Franchise, FranchiseList, Role, Store, User } from '../service/pizzaService';
+import { Franchise, FranchiseList, Role, Store, User, UserList } from '../service/pizzaService';
 import { TrashIcon } from '../icons';
 
 interface Props {
@@ -16,12 +16,31 @@ export default function AdminDashboard(props: Props) {
   const [franchiseList, setFranchiseList] = React.useState<FranchiseList>({ franchises: [], more: false });
   const [franchisePage, setFranchisePage] = React.useState(0);
   const filterFranchiseRef = React.useRef<HTMLInputElement>(null);
+  const [userList, setUserList] = React.useState<UserList>({ users: [], more: false });
+  const [userPage, setUserPage] = React.useState(0);
+  const filterUserRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     (async () => {
       setFranchiseList(await pizzaService.getFranchises(franchisePage, 3, '*'));
     })();
   }, [props.user, franchisePage]);
+
+  React.useEffect(() => {
+    (async () => {
+      setUserList(await pizzaService.getUsers(userPage, 5, '*'));
+    })();
+  }, [props.user, userPage]);
+
+  async function filterUsers() {
+    setUserPage(0);
+    setUserList(await pizzaService.getUsers(0, 5, `*${filterUserRef.current?.value}*`));
+  }
+
+  async function deleteUser(user: User) {
+    await pizzaService.deleteUser(user);
+    setUserList(await pizzaService.getUsers(userPage, 5, `*${filterUserRef.current?.value ?? ''}*`));
+  }
 
   function createFranchise() {
     navigate('/admin-dashboard/create-franchise');
@@ -118,6 +137,55 @@ export default function AdminDashboard(props: Props) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+        <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
+          <h3 className="text-neutral-100 text-xl">Users</h3>
+          <div className="bg-neutral-100 overflow-clip my-4">
+            <div className="p-2 flex gap-2">
+              <input type="text" ref={filterUserRef} name="filterUser" placeholder="Filter users" className="px-2 py-1 text-sm border border-gray-300 rounded-lg" />
+              <button className="px-2 py-1 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-orange-200" onClick={filterUsers}>
+                Filter
+              </button>
+            </div>
+            <table className="min-w-full">
+              <thead className="uppercase text-neutral-100 bg-slate-400 border-b-2 border-gray-500">
+                <tr>
+                  {['Name', 'Email', 'Role', 'Action'].map((header) => (
+                    <th key={header} scope="col" className="px-6 py-3 text-center text-xs font-medium">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {userList.users.map((listUser) => (
+                  <tr key={listUser.id} className="hover:bg-gray-100">
+                    <td className="px-6 py-4 text-center text-sm font-medium text-gray-800">{listUser.name}</td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-800">{listUser.email}</td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-800">{listUser.roles?.map((r) => r.role).join(', ')}</td>
+                    <td className="px-6 py-4 text-center text-sm font-medium">
+                      <button className="px-2 py-1 text-sm font-semibold rounded-lg border border-transparent bg-white text-grey hover:bg-orange-200" onClick={() => deleteUser(listUser)}>
+                        <TrashIcon />
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={4} className="text-end p-2">
+                    <button className="w-12 p-1 text-sm font-semibold rounded-lg border border-transparent bg-white text-grey border-grey m-1 hover:bg-orange-200 disabled:bg-neutral-300" onClick={() => setUserPage(userPage - 1)} disabled={userPage <= 0}>
+                      «
+                    </button>
+                    <button className="w-12 p-1 text-sm font-semibold rounded-lg border border-transparent bg-white text-grey border-grey m-1 hover:bg-orange-200 disabled:bg-neutral-300" onClick={() => setUserPage(userPage + 1)} disabled={!userList.more}>
+                      »
+                    </button>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
         <div>
